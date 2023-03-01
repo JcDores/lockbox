@@ -15,6 +15,7 @@ class User
   field :ssn_ciphertext, type: BSON::Binary
   field :state, type: String
   field :state_ciphertext, type: String
+  field :password_ciphertext, type: String
 
   has_encrypted :email, previous_versions: [{key: Lockbox.generate_key}, {master_key: Lockbox.generate_key}]
 
@@ -24,6 +25,7 @@ class User
   has_encrypted :city, padding: true
   has_encrypted :ssn, encode: false
   has_encrypted :state
+  has_encrypted :password, with_associated_field: '_id'
 
   include PhotoUploader::Attachment(:photo)
   field :photo_data, type: String
@@ -49,10 +51,15 @@ class Robot
 
   field :name, type: String
   field :email, type: String
+  field :password, type: String
   field :name_ciphertext, type: String
   field :email_ciphertext, type: String
+  field :password_ciphertext, type: String
+  field :balance_ciphertext, type: String
 
   has_encrypted :name, :email, migrating: true
+  has_encrypted :password, migrating: true, with_associated_field: '_id'
+  has_encrypted :balance, type: :integer, with_associated_field: 'name', previous_versions: [{ key: Lockbox.generate_key, with_associated_field: 'email_ciphertext' }, { master_key: Lockbox.generate_key, with_associated_field: '_id' }]
 end
 
 class Admin
@@ -66,6 +73,9 @@ class Admin
   field :encrypted_email, type: String
   field :dep_ciphertext, type: String
   field :dep2_ciphertext, type: String
+  field :encrypted_password, type: String
+  field :balance_ciphertext, type: String
+  field :age_ciphertext, type: String
 
   has_encrypted :email, key: :record_key
   has_encrypted :personal_email, key: -> { record_key }
@@ -77,6 +87,7 @@ class Admin
 
   has_encrypted :email_address, key_table: "users", key_attribute: "email_ciphertext", previous_versions: [{key_table: "people", key_attribute: "email_ciphertext"}]
   has_encrypted :work_email, encrypted_attribute: "encrypted_email"
+  has_encrypted :password, encrypted_attribute: 'encrypted_password', with_associated_field: 'balance_ciphertext'
 end
 
 class Agent
