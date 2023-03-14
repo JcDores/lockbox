@@ -2,6 +2,7 @@ require_relative "test_helper"
 
 class ModelTest < Minitest::Test
   def setup
+    Lockbox.disable_protected_mode
     User.delete_all
   end
 

@@ -2,6 +2,7 @@ require_relative "test_helper"
 
 class ModelTypesTest < Minitest::Test
   def setup
+    Lockbox.disable_protected_mode
     skip if mongoid?
   end
 

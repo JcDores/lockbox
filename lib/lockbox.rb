@@ -28,12 +28,24 @@ module Lockbox
 
   class << self
     attr_accessor :default_options
-    attr_writer :master_key
+    attr_writer :master_key, :protected_mode
   end
   self.default_options = {}
 
   def self.master_key
     @master_key ||= ENV["LOCKBOX_MASTER_KEY"]
+  end
+
+  def self.protected_mode
+    @protected_mode ||= false
+  end
+
+  def self.enable_protected_mode
+    self.protected_mode = true
+  end
+
+  def self.disable_protected_mode
+    self.protected_mode = false
   end
 
   def self.migrate(relation, batch_size: 1000, restart: false)
