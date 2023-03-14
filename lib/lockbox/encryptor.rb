@@ -20,6 +20,8 @@ module Lockbox
     end
 
     def decrypt(ciphertext, **options)
+      return ciphertext if Lockbox.protected_mode
+
       ciphertext = Base64.decode64(ciphertext) if @encode
       ciphertext = check_string(ciphertext)
 
