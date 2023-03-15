@@ -1,6 +1,10 @@
 require_relative "test_helper"
 
 class CarrierWaveTest < Minitest::Test
+  def setup
+    Lockbox.disable_protected_mode
+  end
+
   def teardown
     @content = nil
   end

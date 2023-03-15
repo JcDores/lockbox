@@ -19,6 +19,7 @@ module Lockbox
 
       # pluck
       result = super(*column_names)
+      return result if Lockbox.protected_mode
 
       # decrypt result
       # handle pluck to single columns and multiple

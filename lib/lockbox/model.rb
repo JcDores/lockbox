@@ -149,6 +149,16 @@ module Lockbox
               # needed for in-place modifications
               # assigned attributes are encrypted on assignment
               # and then again here
+              def lockbox_attributes_changes?
+                self.class.lockbox_attributes.any? do |_, lockbox_attribute|
+                  attribute = lockbox_attribute[:attribute]
+
+                  attribute_changed_in_place?(attribute) ||
+                    send("#{attribute}_changed?") ||
+                    send("#{lockbox_attribute[:encrypted_attribute]}_changed?")
+                end
+              end
+
               def lockbox_sync_attributes
                 self.class.lockbox_attributes.each do |_, lockbox_attribute|
                   attribute = lockbox_attribute[:attribute]
@@ -164,6 +174,20 @@ module Lockbox
                 unless private_method_defined?(method_name) || method_defined?(method_name)
                   raise Lockbox::Error, "Expected #{method_name} to be defined. Please report an issue."
                 end
+              end
+
+              def save!(**options, &block)
+                if lockbox_attributes_changes? && Lockbox.protected_mode
+                  return raise Lockbox::Error, "Encrypted attributes changes detected while in protected mode"
+                end
+
+                super
+              end
+
+              def save(**options, &block)
+                return false if lockbox_attributes_changes? && Lockbox.protected_mode
+
+                super
               end
 
               def _create_record(*)
@@ -225,6 +249,19 @@ module Lockbox
                 end
 
                 result
+              end
+
+              def changes
+                changes = super
+                return changes unless Lockbox.protected_mode
+
+                changes.each_key do |key|
+                  lockbox_config = self.class.lockbox_attributes[key.to_sym]
+                  if self.class.lockbox_attributes[key.to_sym]
+                    changes[key] = attribute_change(lockbox_config[:encrypted_attribute])
+                  end
+                end
+                changes
               end
 
               if ActiveRecord::VERSION::MAJOR >= 6
@@ -360,6 +397,12 @@ module Lockbox
               super()
             end
 
+            define_method("#{name}_change") do
+              return send("#{encrypted_attribute}_change") if Lockbox.protected_mode
+
+              super()
+            end
+
             # restore ciphertext as well
             define_method("restore_#{name}!") do
               super()
@@ -462,9 +505,12 @@ module Lockbox
           define_method(name) do
             message = super()
 
+            return send(encrypted_attribute) if Lockbox.protected_mode
+
             # possibly keep track of decrypted attributes directly in the future
             # Hash serializer returns {} when nil, Array serializer returns [] when nil
             # check for this explicitly as a layer of safety
+            ciphertext = send(encrypted_attribute)
             if message.nil? || ((message == {} || message == []) && activerecord && @attributes[name.to_s].value_before_type_cast.nil?)
               ciphertext = send(encrypted_attribute)
 
@@ -557,6 +603,8 @@ module Lockbox
           end
 
           define_singleton_method decrypt_method_name do |ciphertext, **opts|
+            return ciphertext if Lockbox.protected_mode
+
             message =
               if ciphertext.nil? || (ciphertext == "" && !options[:padding])
                 ciphertext
